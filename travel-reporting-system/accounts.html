@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Accounts Report Review</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-['Roboto'] min-h-screen p-6">
+  <header class="mb-8 text-center">
+    <h1 class="text-3xl font-bold text-gray-800">Accounts Report Review & Approval</h1>
+  </header>
+  <main class="max-w-5xl mx-auto bg-white rounded-lg shadow p-6">
+    <table class="w-full table-auto border-collapse border border-gray-300">
+      <thead>
+        <tr class="bg-gray-200">
+          <th class="border border-gray-300 px-4 py-2">ID</th>
+          <th class="border border-gray-300 px-4 py-2">Agent Name</th>
+          <th class="border border-gray-300 px-4 py-2">Service Type</th>
+          <th class="border border-gray-300 px-4 py-2">Description</th>
+          <th class="border border-gray-300 px-4 py-2">Status</th>
+          <th class="border border-gray-300 px-4 py-2">Payment</th>
+          <th class="border border-gray-300 px-4 py-2">Invoice Price</th>
+          <th class="border border-gray-300 px-4 py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="reportsTableBody">
+        <!-- Reports will be dynamically inserted here -->
+      </tbody>
+    </table>
+    <div id="message" class="mt-4 text-center font-semibold"></div>
+  </main>
+
+  <script>
+    const reportsTableBody = document.getElementById('reportsTableBody');
+    const messageDiv = document.getElementById('message');
+
+    async function fetchReports() {
+      try {
+        const response = await fetch('http://localhost:3000/reports');
+        if (!response.ok) throw new Error('Failed to fetch reports');
+        const reports = await response.json();
+        renderReports(reports);
+      } catch (error) {
+        messageDiv.textContent = 'Error: ' + error.message;
+        messageDiv.classList.add('text-red-600');
+      }
+    }
+
+    function renderReports(reports) {
+      reportsTableBody.innerHTML = '';
+      reports.forEach(report => {
+        const tr = document.createElement('tr');
+        tr.className = 'border border-gray-300';
+
+        tr.innerHTML = `
+          <td class="border border-gray-300 px-2 py-1 text-center">${report.id}</td>
+          <td class="border border-gray-300 px-2 py-1">${report.agentName}</td>
+          <td class="border border-gray-300 px-2 py-1">${report.serviceType}</td>
+          <td class="border border-gray-300 px-2 py-1">${report.description}</td>
+          <td class="border border-gray-300 px-2 py-1 text-center">${report.status}</td>
+          <td class="border border-gray-300 px-2 py-1 text-center">${report.payment !== null ? report.payment : '-'}</td>
+          <td class="border border-gray-300 px-2 py-1 text-center">${report.invoicePrice !== null ? report.invoicePrice : '-'}</td>
+          <td class="border border-gray-300 px-2 py-1 text-center">
+            ${report.status === 'submitted' ? `
+              <button class="approveBtn bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 transition" data-id="${report.id}">Approve</button>
+            ` : '-'}
+          </td>
+        `;
+        reportsTableBody.appendChild(tr);
+      });
+      attachApproveListeners();
+    }
+
+    function attachApproveListeners() {
+      const buttons = document.querySelectorAll('.approveBtn');
+      buttons.forEach(button => {
+        button.addEventListener('click', () => {
+          const reportId = button.getAttribute('data-id');
+          showApprovalPrompt(reportId);
+        });
+      });
+    }
+
+    function showApprovalPrompt(reportId) {
+      const payment = prompt('Enter payment amount:');
+      if (payment === null) return; // Cancelled
+      const invoicePrice = prompt('Enter invoice price:');
+      if (invoicePrice === null) return; // Cancelled
+
+      approveReport(reportId, payment, invoicePrice);
+    }
+
+    async function approveReport(reportId, payment, invoicePrice) {
+      messageDiv.textContent = '';
+      try {
+        const response = await fetch(`http://localhost:3000/reports/${reportId}/approve`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payment, invoicePrice }),
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to approve report');
+        }
+        messageDiv.textContent = 'Report approved successfully!';
+        messageDiv.classList.remove('text-red-600');
+        messageDiv.classList.add('text-green-600');
+        fetchReports();
+      } catch (error) {
+        messageDiv.textContent = 'Error: ' + error.message;
+        messageDiv.classList.remove('text-green-600');
+        messageDiv.classList.add('text-red-600');
+      }
+    }
+
+    fetchReports();
+  </script>
+</body>
+</html>
